@@ -15,7 +15,9 @@ yaml = YAML()
 
 
 def _get_project_dir_folder():
-    return path.dirname(path.dirname(path.dirname(path.dirname(__file__))))
+    return path.dirname(
+        path.dirname(path.dirname(path.dirname(path.dirname(path.dirname(__file__)))))
+    )
 
 
 def _construct_report(config, now, later, model):
@@ -39,21 +41,41 @@ def main():
     torch.manual_seed(42)
     device = get_device()
 
-    experiment = "baselinebuild"
+    experiment = "baseline"
     ASSETS_FP = path.join(_get_project_dir_folder(), "assets")
     # Input
-    documents_fp = path.join(ASSETS_FP, "datasets", "model", f"train-{experiment}.csv")
-    labels_fp = path.join(ASSETS_FP, "datasets", "datamart", "labels.csv")
-    config_fp = path.join(ASSETS_FP, "config", f"config-{experiment}.yaml")
+    documents_fp = path.join(
+        ASSETS_FP,
+        "datasets",
+        "named_entity_recognition",
+        "model",
+        f"train-{experiment}.csv",
+    )
+    labels_fp = path.join(
+        ASSETS_FP, "datasets", "named_entity_recognition", "datamart", "labels.csv"
+    )
+    config_fp = path.join(
+        ASSETS_FP, "config", "named_entity_recognition", f"config-{experiment}.yaml"
+    )
     model_vocabulary_fp = path.join(
-        ASSETS_FP, "datasets", "model", f"vocabulary-{experiment}.csv"
+        ASSETS_FP,
+        "datasets",
+        "model",
+        "named_entity_recognition",
+        f"vocabulary-{experiment}.csv",
     )
     # Output
     model_fp = path.join(
-        ASSETS_FP, "models", f"build-{experiment}-{model_timestamp}.pkl"
+        ASSETS_FP,
+        "models",
+        "named_entity_recognition",
+        f"build-{experiment}-{model_timestamp}.pkl",
     )
     model_json_fp = path.join(
-        ASSETS_FP, "models", f"buildprofile-{experiment}-{model_timestamp}.json"
+        ASSETS_FP,
+        "models",
+        "named_entity_recognition",
+        f"buildprofile-{experiment}-{model_timestamp}.json",
     )
 
     # Corpus
@@ -72,22 +94,7 @@ def main():
     config_train = config.get("params").get("train")
 
     # Vocabulary
-    word_to_idx_dict = construct_word_to_idx(corpus)
-    vocab_size = len(word_to_idx_dict)
-    save_vocabulary_to_idx(word_to_idx_dict, model_vocabulary_fp)
-
-    # Data Loader
-    word_idx_sequences, onehot_labels = transform_corpus_to_idx_word_windows(
-        corpus, labels, word_to_idx_dict, pad_window_size=config_common["window_size"]
-    )
-    data = list(zip(word_idx_sequences, onehot_labels))
-    collate_fn = partial(custom_collate_fn, device=device)
-    loader = DataLoader(
-        data,
-        batch_size=config_train["batch_size"],
-        shuffle=config_train["shuffle"],
-        collate_fn=collate_fn,
-    )
+    word_to_idx_dict, vocab_size = construct_word_to_idx(corpus)
 
     # Model
     model_hyperparameters = {
@@ -101,6 +108,7 @@ def main():
         model_hyperparameters, vocab_size, num_classes=count_unique_labels
     )
     later = pendulum.now()
+
     # Save trained model & environment
     torch.save(model.state_dict(), model_fp)
     j = _construct_report(config, now, later, model)

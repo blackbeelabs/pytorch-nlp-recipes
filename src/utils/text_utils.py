@@ -69,3 +69,48 @@ def transform_corpus_to_idx_sequences(corpus, word_to_idx):
         for d in corpus
     ]
     return indices
+
+
+# Used for binary classification
+def transform_corpus_to_idx_word_windows(
+    corpus,
+    labels,
+    word_to_idx,
+    pad_window_size=1,
+    pad_token="<pad>",
+):
+    def _convert_token_to_indices(sentence, word_to_ix):
+        return [word_to_ix.get(token, word_to_ix["<unk>"]) for token in sentence]
+
+    def _pad_sentence(
+        sentence,
+        window_size,
+        pad_token,
+    ):
+        window = [pad_token] * window_size
+        return window + sentence + window
+
+    # Corpus
+    corpus = [d.split("^") for d in corpus]
+    padded_sentences = [_pad_sentence(d, pad_window_size, pad_token) for d in corpus]
+
+    full_window_size = pad_window_size * 2 + 1
+    windows = []
+    for d in padded_sentences:
+        count_windows_in_sentence = (len(d) - full_window_size) + 1
+        for i in range(count_windows_in_sentence):
+            windows.append(d[i : i + full_window_size])
+
+    indices_list = [
+        _convert_token_to_indices(
+            w,
+            word_to_idx,
+        )
+        for w in windows
+    ]
+
+    labels_list = []
+    for l in labels:
+        labels_list.extend(l.split("^"))
+    labels_list = [[int(j) for j in list(l)] for l in labels_list]
+    return indices_list, labels_list

@@ -1,3 +1,4 @@
+import argparse
 import json
 from os import path
 from functools import partial
@@ -15,7 +16,9 @@ yaml = YAML()
 
 
 def _get_project_dir_folder():
-    return path.dirname(path.dirname(path.dirname(path.dirname(__file__))))
+    return path.dirname(
+        path.dirname(path.dirname(path.dirname(path.dirname(path.dirname(__file__)))))
+    )
 
 
 def _construct_report(config, now, model, result_dict):
@@ -64,31 +67,45 @@ def _construct_report(config, now, model, result_dict):
     return report
 
 
-def main():
+def main(experiment_timestamp, experiment_mode="model", experiment="baseline"):
     now = pendulum.now()
     torch.manual_seed(42)
     device = get_device()
 
     ASSETS_FP = path.join(_get_project_dir_folder(), "assets")
 
-    experiment_mode = "build"
-    experiment = "baselinebuild"
-    experiment_timestamp = "20240228T130915"
-
-    documents_fp = path.join(ASSETS_FP, "datasets", "model", f"test-{experiment}.csv")
-    vocabulary_fp = path.join(
-        ASSETS_FP, "datasets", "model", f"vocabulary-{experiment}.csv"
+    documents_fp = path.join(
+        ASSETS_FP,
+        "datasets",
+        "named_entity_recognition",
+        "model",
+        f"test-{experiment}.csv",
     )
-    labels_fp = path.join(ASSETS_FP, "datasets", "datamart", "labels.csv")
-    config_baseline_fp = path.join(ASSETS_FP, "config", f"config-{experiment}.yaml")
+    vocabulary_fp = path.join(
+        ASSETS_FP,
+        "datasets",
+        "named_entity_recognition",
+        "model",
+        f"vocabulary-{experiment}.csv",
+    )
+    labels_fp = path.join(
+        ASSETS_FP, "datasets", "named_entity_recognition", "datamart", "labels.csv"
+    )
+    config_baseline_fp = path.join(
+        ASSETS_FP, "config", "named_entity_recognition", f"config-{experiment}.yaml"
+    )
     model_fp = path.join(
         ASSETS_FP,
         "models",
+        "named_entity_recognition",
         f"{experiment_mode}-{experiment}-{experiment_timestamp}.pkl",
     )
 
     results_json_fp = path.join(
-        ASSETS_FP, "models", f"report-{experiment}-{experiment_timestamp}.json"
+        ASSETS_FP,
+        "models",
+        "named_entity_recognition",
+        f"report-{experiment}-{experiment_timestamp}.json",
     )
 
     # Corpus
@@ -106,8 +123,7 @@ def main():
     config_validate = config.get("params").get("validate")
 
     # Vocabulary
-    word_to_idx_dict = load_vocabulary_to_idx(vocabulary_fp)
-    vocab_size = len(word_to_idx_dict)
+    word_to_idx_dict, vocab_size = load_vocabulary_to_idx(vocabulary_fp)
 
     # Data Loader
     word_idx_sequences, onehot_labels = transform_corpus_to_idx_word_windows(
@@ -155,4 +171,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-t", type=str, required=True)
+    args = parser.parse_args()
+    main(experiment_timestamp=args.t)

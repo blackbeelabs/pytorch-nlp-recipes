@@ -14,7 +14,7 @@ from tasks.tasks import *
 
 def _get_project_dir_folder():
     return path.dirname(
-        path.dirname(path.dirname(path.dirname(path.dirname(__file__))))
+        path.dirname(path.dirname(path.dirname(path.dirname(path.dirname(__file__)))))
     )
 
 

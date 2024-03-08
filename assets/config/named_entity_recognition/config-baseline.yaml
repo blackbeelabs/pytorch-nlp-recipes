@@ -1,0 +1,17 @@
+# SEC Filings (NER Multi Classification)
+name: sec_filings
+experiment: baseline
+params: 
+    common:
+        window_size: 1
+        embed_dim: 64
+        hidden_dim: 64
+        freeze_embeddings: false
+    train:
+        batch_size: 4
+        shuffle: true
+        epochs: 25
+        learning_rate: 0.01
+    validate:
+        batch_size: 16
+        shuffle: false

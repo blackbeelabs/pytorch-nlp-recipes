@@ -211,7 +211,7 @@ class WordWindowMulticlassClassifierBaseline(nn.Module):
          - L: Length of sequence
          - C: Number of classes
         """
-        print(f"inputs_BL.size(): {inputs_BL.size()}")
+        # print(f"inputs_BL.size(): {inputs_BL.size()}")
         B, L = inputs_BL.size()
 
         embedded_windows_BLE = self.embedding(inputs_BL)
@@ -286,6 +286,7 @@ def train_named_entity_recognition(
     loss_function, optimizer, model, loader, num_epochs=10000
 ):
     epoch_and_loss_list = [["epoch", "loss"]]
+    print(f"num_epochs={num_epochs}")
     for epoch in range(num_epochs):
         epoch_loss = train_epoch_for_per_token(loss_function, optimizer, model, loader)
         if epoch % 10 == 0:

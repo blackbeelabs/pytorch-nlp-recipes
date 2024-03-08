@@ -15,7 +15,9 @@ yaml = YAML()
 
 
 def _get_project_dir_folder():
-    return path.dirname(path.dirname(path.dirname(path.dirname(__file__))))
+    return path.dirname(
+        path.dirname(path.dirname(path.dirname(path.dirname(path.dirname(__file__)))))
+    )
 
 
 def _construct_report(config, losses, now, later, vocab_size, word_window_size, model):
@@ -46,18 +48,38 @@ def main():
     experiment = "baseline"
     ASSETS_FP = path.join(_get_project_dir_folder(), "assets")
 
-    documents_fp = path.join(ASSETS_FP, "datasets", "model", f"train-{experiment}.csv")
-    labels_fp = path.join(ASSETS_FP, "datasets", "datamart", "labels.csv")
-    config_fp = path.join(ASSETS_FP, "config", f"config-{experiment}.yaml")
+    documents_fp = path.join(
+        ASSETS_FP,
+        "datasets",
+        "named_entity_recognition",
+        "model",
+        f"train-{experiment}.csv",
+    )
+    labels_fp = path.join(
+        ASSETS_FP, "datasets", "named_entity_recognition", "datamart", "labels.csv"
+    )
+    config_fp = path.join(
+        ASSETS_FP, "config", "named_entity_recognition", f"config-{experiment}.yaml"
+    )
 
     model_vocabulary_fp = path.join(
-        ASSETS_FP, "datasets", "model", f"vocabulary-{experiment}.csv"
+        ASSETS_FP,
+        "datasets",
+        "named_entity_recognition",
+        "model",
+        f"vocabulary-{experiment}.csv",
     )
     model_fp = path.join(
-        ASSETS_FP, "models", f"model-{experiment}-{model_timestamp}.pkl"
+        ASSETS_FP,
+        "models",
+        "named_entity_recognition",
+        f"model-{experiment}-{model_timestamp}.pkl",
     )
     model_json_fp = path.join(
-        ASSETS_FP, "models", f"modelprofile-{experiment}-{model_timestamp}.json"
+        ASSETS_FP,
+        "models",
+        "named_entity_recognition",
+        f"modelprofile-{experiment}-{model_timestamp}.json",
     )
 
     # Corpus
@@ -75,8 +97,7 @@ def main():
     config_train = config.get("params").get("train")
 
     # Vocabulary
-    word_to_idx_dict = construct_word_to_idx(corpus)
-    vocab_size = len(word_to_idx_dict)
+    word_to_idx_dict, vocab_size = construct_word_to_idx(corpus)
     save_vocabulary_to_idx(word_to_idx_dict, model_vocabulary_fp)
 
     # Data Loader
@@ -110,7 +131,9 @@ def main():
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
     num_epochs = config_train["epochs"]
     # Train
-    losses = train(ce_loss_function, optimizer, model, loader, num_epochs=num_epochs)
+    losses = train_named_entity_recognition(
+        ce_loss_function, optimizer, model, loader, num_epochs=num_epochs
+    )
     later = pendulum.now()
 
     # Save trained model & environment

@@ -64,26 +64,81 @@ Observe that the reports are in:
 │       └── report-model-baseline-20240308T104310.json
 ```
 
+Repeat for Named Entity Recognition:
+```
+python pipelines/named_entity_recognition/pipelines/ml/build.py
+python pipelines/named_entity_recognition/pipelines/ml/train.py
+python pipelines/named_entity_recognition/pipelines/eval/evaluate.py -t 20240308T111229 # Update this
+```
+
 ## Folder Structure
+
+Some of the key features of this folder structure are:
+1. Have datasets to progress from `downloaded`, `datamart` and finally `model`
+2. Have all pipelines to be separated per project
+3. Have `utils` and `model` code in separate packages independent of project
 ```
-├── config
-├── datasets
-│   ├── (project)
-│   │   ├── datamart
-│   │   │   ├── test.csv
-│   │   │   └── train.csv
-│   │   ├── downloaded
-│   │   │   └── source.md
-│   │   └── model
-│       └── model
-├── models
-│   ├── (project)
-└── notebooks
+.
+├── README.md
+├── assets
+│   ├── config
+│   │   ├── named_entity_recognition
+│   │   │   └── config-baseline.yaml
+│   │   └── sentiment_analysis
+│   │       ├── config-baseline.yaml
+│   │       └── config-delta.yaml
+│   ├── datasets
+│   │   ├── named_entity_recognition
+│   │   │   ├── datamart
+│   │   │   │   └── labels.csv
+│   │   │   ├── downloaded
+│   │   │   │   └── source.md
+│   │   │   └── model
+│   │   │       ├── test-baseline.csv
+│   │   │       ├── train-baseline.csv
+│   │   │       └── vocabulary-baseline.csv
+│   │   └── sentiment_analysis
+│   │       ├── datamart
+│   │       │   ├── test.csv
+│   │       │   └── train.csv
+│   │       ├── downloaded
+│   │       │   └── source.md
+│   │       └── model
+│   ├── models
+│   │   ├── named_entity_recognition
+│   │   └── sentiment_analysis
+│   └── notebooks
+├── requirements-jupyter.txt
+├── requirements.txt
+└── src
+    ├── model
+    │   └── model.py
+    ├── pipelines
+    │   ├── named_entity_recognition
+    │   │   └── pipelines
+    │   │       ├── deploy
+    │   │       │   └── expose_model.py
+    │   │       ├── eval
+    │   │       │   ├── evaluate.py
+    │   │       │   └── model_architecture.py
+    │   │       ├── ml
+    │   │       │   ├── build.py
+    │   │       │   ├── prepare_data.py
+    │   │       │   ├── qa_data_loader.py
+    │   │       │   └── train.py
+    │   │       └── preprocess
+    │   │           └── ingest_to_datamart.py
+    │   └── sentiment_analysis
+    │       ├── eval
+    │       │   └── evaluate.py
+    │       ├── ml
+    │       │   ├── build.py
+    │       │   └── train.py
+    │       └── preprocess
+    │           └── ingest_to_datamart.py
+    ├── tasks
+    │   └── tasks.py
+    └── utils
+        ├── io_utils.py
+        └── text_utils.py
 ```
-The assets
-To prepare:
-1. Install requirements with `pip install -r requirements.txt`
-2. Go to `path/to/src`
-3. Run `pipelines/ml/build.py` to ensure that the model can be built
-4. Run `pipelines/ml/eval.py` to validate that the model can be used for inference. Change the variables `workflow`, `experiment` and `experiment_timestamp` to ensure they are consistent with the output.
-5. If all runs well, run `python pipelines/ml/train.py` and `python pipelines/ml/eval.py` to train your model. Observe how the performance improves between the built model with randomly initialised weights, and the trained model.

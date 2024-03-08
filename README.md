@@ -15,8 +15,8 @@ The workflow contains a couple of steps:
 ## Quickstart
 Initialise your Python environment. I use `pyenv` / `virtualenv`, and 3.11.1
 ```
-pyenv virtualenv 3.11.1 pytorchstuff
-pyenv activate pytorchstuff
+pyenv virtualenv 3.11.1 pytorchnlprecipes
+pyenv activate pytorchnlprecipes
 pip install -r requirements.txt
 ```
 

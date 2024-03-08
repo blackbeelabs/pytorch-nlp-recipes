@@ -1,3 +1,4 @@
+import argparse
 import json
 from os import path
 from functools import partial
@@ -17,13 +18,14 @@ yaml = YAML()
 
 
 def _get_project_dir_folder():
-    return path.dirname(path.dirname(path.dirname(path.dirname(__file__))))
+    return path.dirname(
+        path.dirname(path.dirname(path.dirname(path.dirname(__file__))))
+    )
 
 
 def _construct_report(config, experiment_timestamp, result_dict):
     report = {}
     report["name"] = config["name"]
-    expt = config["experiment"]
     report["time_start"] = experiment_timestamp
     report = report | config["params"]["common"]
     report = report | config["params"]["validate"]
@@ -64,39 +66,46 @@ def _construct_report(config, experiment_timestamp, result_dict):
     return report
 
 
-def main():
-
+def main(
+    experiment_timestamp,
+    workflow="model",
+    experiment="baseline",
+):
     torch.manual_seed(42)
     device = get_device()
 
     ASSETS_FP = path.join(_get_project_dir_folder(), "assets")
 
-    workflow = "model"
-    experiment = "baseline"
-    experiment_timestamp = "20240306T114509"
-
-    documents_fp = path.join(ASSETS_FP, "datasets", "datamart", f"test.csv")
+    documents_fp = path.join(
+        ASSETS_FP, "datasets", "sentiment_analysis", "datamart", f"test.csv"
+    )
     vocabulary_fp = path.join(
         ASSETS_FP,
         "datasets",
+        "sentiment_analysis",
         "model",
         f"vocabulary-{workflow}-{experiment}-{experiment_timestamp}.csv",
     )
-    config_fp = path.join(ASSETS_FP, "config", f"config-{experiment}.yaml")
+    config_fp = path.join(
+        ASSETS_FP, "config", "sentiment_analysis", f"config-{experiment}.yaml"
+    )
     model_fp = path.join(
         ASSETS_FP,
         "models",
+        "sentiment_analysis",
         f"{workflow}-{experiment}-{experiment_timestamp}.pkl",
     )
 
     results_json_fp = path.join(
         ASSETS_FP,
         "models",
+        "sentiment_analysis",
         f"report-{workflow}-{experiment}-{experiment_timestamp}.json",
     )
     results_csv_fp = path.join(
         ASSETS_FP,
         "models",
+        "sentiment_analysis",
         f"detailedreport-{workflow}-{experiment}-{experiment_timestamp}.csv",
     )
 
@@ -117,7 +126,11 @@ def main():
     )
     # Data loader
     data = list(zip(word_idx_sequences, labels))
-    collate_fn = partial(custom_collate_fn, word_to_idx=word_to_idx_dict, device=device)
+    collate_fn = partial(
+        custom_collate_fn_for_variable_seq_length,
+        word_to_idx=word_to_idx_dict,
+        device=device,
+    )
     loader = DataLoader(
         data,
         batch_size=config_validate["batch_size"],
@@ -172,4 +185,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-t", type=str, required=True)
+    args = parser.parse_args()
+    main(experiment_timestamp=args.t)

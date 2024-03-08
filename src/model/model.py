@@ -19,7 +19,7 @@ def count_parameters(model):
     return model_params_str, model_params
 
 
-def custom_collate_fn(batch, word_to_idx, device):
+def custom_collate_fn_for_variable_seq_length(batch, word_to_idx, device):
 
     # Prepare the datapoints
     x, y = zip(*batch)
@@ -116,7 +116,7 @@ def optimizer_obj(model, optimizer_name, learning_rate=0.001):
     return torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 
-def train_epoch(loss_function, batch_size, optimizer, model, loader):
+def train_epoch_for_per_sequence(loss_function, optimizer, model, loader):
 
     # Clear the gradients
     optimizer.zero_grad()
@@ -144,11 +144,151 @@ def train_epoch(loss_function, batch_size, optimizer, model, loader):
     return total_loss
 
 
-def train(loss_function, batch_size, optimizer, model, loader, num_epochs=10000):
+def train_sentiment_analysis(loss_function, optimizer, model, loader, num_epochs=10000):
     epoch_and_loss_list = [["epoch", "loss"]]
+    print(f"num_epochs={num_epochs}")
     for epoch in range(num_epochs):
-        epoch_loss = train_epoch(loss_function, batch_size, optimizer, model, loader)
+        epoch_loss = train_epoch_for_per_sequence(
+            loss_function, optimizer, model, loader
+        )
         if (epoch == 0) or ((epoch + 1) == num_epochs) or ((epoch + 1) % 100 == 0):
             print(f"epoch={(epoch+1)}, epoch_loss={epoch_loss}")
             epoch_and_loss_list.append([(epoch + 1), float(epoch_loss)])
+    return epoch_and_loss_list
+
+
+def custom_collate_fn(batch, device):
+    """
+    Dimension key:
+     - B: Batch size
+     - L: Length of sequence
+     - C: Number of classes
+    """
+    # Prepare the datapoints
+    x, y = zip(*batch)
+
+    x_tensor = [torch.LongTensor(xi) for xi in x]
+    x_tensor_BL = torch.stack(x_tensor)
+
+    y_tensor = [torch.FloatTensor(yi) for yi in y]
+    y_tensor_BC = torch.stack(y_tensor)
+
+    lengths = [len(label) for label in y]
+    lengths_tensor_B = torch.LongTensor(lengths)
+
+    return x_tensor_BL.to(device), y_tensor_BC.to(device), lengths_tensor_B.to(device)
+
+
+class WordWindowMulticlassClassifierBaseline(nn.Module):
+
+    def __init__(self, hyperparameters, vocab_size, num_classes=2):
+        super(WordWindowMulticlassClassifierBaseline, self).__init__()
+
+        self.window_size = hyperparameters["window_size"]
+        self.embed_dim = hyperparameters["embed_dim"]
+        self.hidden_dim = hyperparameters["hidden_dim"]
+        self.freeze_embeddings = hyperparameters["freeze_embeddings"]
+
+        self.embedding = nn.Embedding(vocab_size, self.embed_dim)
+        if self.freeze_embeddings:
+            self.embedding.weight.requires_grad_ = False
+        self.hidden_layer1 = nn.Sequential(
+            nn.Linear(self.embed_dim * (self.window_size * 2 + 1), self.hidden_dim),
+            nn.ReLU(),
+        )
+        self.hidden_layer2 = nn.Sequential(
+            nn.Linear(self.hidden_dim, self.hidden_dim), nn.ReLU()
+        )
+        self.output_layer = nn.Linear(self.hidden_dim, num_classes)
+
+    def forward(self, inputs_BL):
+        """
+        Dimension key:
+         - B: Batch size
+         - E: Size of embedding
+         - W: Size of word window embedding
+         - H: Size of hidden layer embedding
+         - L: Length of sequence
+         - C: Number of classes
+        """
+        print(f"inputs_BL.size(): {inputs_BL.size()}")
+        B, L = inputs_BL.size()
+
+        embedded_windows_BLE = self.embedding(inputs_BL)
+        # For debugging
+        # print(f"embedded_windows_BLE.size(): {embedded_windows_BLE.size()}")
+
+        extended_embedded_windows_BW = torch.reshape(
+            embedded_windows_BLE, (B, (self.window_size * 2 + 1) * self.embed_dim)
+        )
+        # For debugging
+        # print(
+        # f"extended_embedded_windows_BW.size(): {extended_embedded_windows_BW.size()}"
+        # )
+        hidden1_BH = self.hidden_layer1(extended_embedded_windows_BW)
+        hidden2_BH = self.hidden_layer2(hidden1_BH)
+        output_BC = self.output_layer(hidden2_BH)
+        softmax_BC = nn.functional.softmax(output_BC, dim=1)
+        return softmax_BC
+
+
+def ce_loss_function(batch_outputs, batch_labels):
+    # :== Do not remove. Used for debugging
+    # print(batch_outputs)
+    # print(batch_outputs.shape)
+    # print(batch_labels)
+    # print(batch_labels.shape)
+    # :== Do not remove. Used for debugging
+
+    # Calculate the loss for the whole batch
+    celoss = nn.CrossEntropyLoss()
+    loss = celoss(batch_outputs, batch_labels)
+
+    return loss
+
+
+def train_epoch_for_per_token(loss_function, optimizer, model, loader):
+    """
+    Dimension key:
+     - B: Batch size
+     - L: Length of sequence
+     - C: Number of classes
+    """
+
+    # Keep track of the total loss for the batch
+    total_loss = 0
+    for batch_inputs_BL, batch_labels_BC, batch_lengths_B in tqdm(loader):
+        # print(batch_inputs) # for debugging
+        # Clear the gradients
+        optimizer.zero_grad()
+        # Run a forward pass
+        # print("batch_inputs_BL.size()")
+        # print(batch_inputs_BL.size())
+        outputs_BC = model.forward(batch_inputs_BL)
+        # print("outputs_BC.size()")
+        # print(outputs_BC.size())
+        # Compute the batch loss
+        # print("batch_labels_BC.size()")
+        # print(batch_labels_BC.size())
+        loss = loss_function(outputs_BC, batch_labels_BC)
+        # Calculate the gradients
+        loss.backward()
+        # Update the parameters
+        optimizer.step()
+        # print("batch_lengths_B.size()")
+        # print(batch_lengths_B.size())
+        total_loss += loss.item() / batch_lengths_B[0]
+
+    return total_loss
+
+
+def train_named_entity_recognition(
+    loss_function, optimizer, model, loader, num_epochs=10000
+):
+    epoch_and_loss_list = [["epoch", "loss"]]
+    for epoch in range(num_epochs):
+        epoch_loss = train_epoch_for_per_token(loss_function, optimizer, model, loader)
+        if epoch % 10 == 0:
+            print(f"epoch={epoch}, epoch_loss={epoch_loss}")
+            epoch_and_loss_list.append([epoch, float(epoch_loss.numpy())])
     return epoch_and_loss_list

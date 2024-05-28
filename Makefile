@@ -6,6 +6,7 @@ setup_env:
 	pyenv local ${PROJECT_NAME}
 	pip install -r requirements.txt
 	pip install -r requirements-jupyter.txt
+	
 teardown_env:
 	# pyenv deactivate ${PROJECT_NAME}
 	pyenv uninstall ${PROJECT_NAME}

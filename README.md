@@ -12,12 +12,25 @@ The workflow contains a couple of steps:
 3. Evaluation of a model
 4. Deployment (used for inference)
 
-## Quickstart
+## Setup environment
 Initialise your Python environment. I use `pyenv` / `virtualenv`, and 3.11.1
 ```
-pyenv virtualenv 3.11.1 pytorchnlprecipes
-pyenv activate pytorchnlprecipes
-pip install -r requirements.txt
+make setup_env
+```
+
+## Download datasets
+```
+make download_data
+```
+
+## Preprocess datasets
+```
+make preprocess_data
+```
+
+## Teardown environment
+```
+make teardown_env
 ```
 
 Set the `PYTHONPATH` and go to the `src` folder

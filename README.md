@@ -12,18 +12,20 @@ The workflow contains a couple of steps:
 3. Evaluation of a model
 4. Deployment (used for inference)
 
-## Quickstart
+## Setup environment
 Initialise your Python environment. I use `pyenv` / `virtualenv`, and 3.11.1
 ```
-pyenv virtualenv 3.11.1 pytorchnlprecipes
-pyenv activate pytorchnlprecipes
-pip install -r requirements.txt
+make setup
 ```
 
-Set the `PYTHONPATH` and go to the `src` folder
+## Ingest datasets
 ```
-export PYTHONPATH="/path/to/pytorch-nlp-recipes/src"
-cd /path/to/pytorch-nlp-recipes/src
+make ingest
+```
+
+## Remove environment
+```
+make remove
 ```
 
 Run `build.py` and `train.py` for Sentiment Analysis

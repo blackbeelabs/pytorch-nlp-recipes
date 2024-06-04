@@ -4,7 +4,11 @@ import pandas as pd
 
 
 def _get_project_dir_folder():
-    return path.dirname(path.dirname(path.dirname(path.dirname(__file__))))
+    project_root = path.dirname(
+        path.dirname(path.dirname(path.dirname(path.dirname(__file__))))
+    )
+    print(f"project_root={project_root}")
+    return project_root
 
 
 def _to_onehot_labels(label_seq, labels_dict):
@@ -22,8 +26,22 @@ def main():
     ASSETS_FP = path.join(_get_project_dir_folder(), "assets")
     for dataset in ["train", "test"]:
 
-        in_fp = path.join(ASSETS_FP, "datasets", "downloaded", f"{dataset}.txt")
-        out_fp = path.join(ASSETS_FP, "datasets", "datamart", f"{dataset}.csv")
+        in_fp = path.join(
+            ASSETS_FP,
+            "datasets",
+            "named_entity_recognition",
+            "downloaded",
+            f"{dataset}.txt",
+        )
+        # print(f"in_fp={in_fp}")
+        out_fp = path.join(
+            ASSETS_FP,
+            "datasets",
+            "named_entity_recognition",
+            "datamart",
+            f"{dataset}.csv",
+        )
+        # print(f"out_fp={out_fp}")
 
         tokens_list = []
         with open(in_fp, newline="") as csvfile:
@@ -65,8 +83,15 @@ def main():
         df_out[["tokens", "labels"]].to_csv(out_fp, sep="\t", index=False)
 
     # 2 - unique labels
-    datamart_fp = path.join(ASSETS_FP, "datasets", "datamart", "train.csv")
-    uniq_labels_fp = path.join(ASSETS_FP, "datasets", "datamart", "labels.csv")
+    datamart_fp = path.join(
+        ASSETS_FP, "datasets", "named_entity_recognition", "datamart", "train.csv"
+    )
+    uniq_labels_fp = path.join(
+        ASSETS_FP, "datasets", "named_entity_recognition", "datamart", "labels.csv"
+    )
+    # print(f"datamart_fp={datamart_fp}")
+    # print(f"uniq_labels_fp={uniq_labels_fp}")
+
     df = pd.read_csv(datamart_fp, sep="\t")
     labels = df["labels"]
     unique_labels = []
@@ -92,7 +117,14 @@ def main():
         unique_labels_dict[r["label"]] = r["v"]
 
     for dataset in ["train", "test"]:
-        datamart_fp = path.join(ASSETS_FP, "datasets", "datamart", f"{dataset}.csv")
+        datamart_fp = path.join(
+            ASSETS_FP,
+            "datasets",
+            "named_entity_recognition",
+            "datamart",
+            f"{dataset}.csv",
+        )
+        # print(f"datamart_fp={datamart_fp}")
         datamart_df = pd.read_csv(datamart_fp, sep="\t")
         datamart_df["onehot_labels"] = datamart_df["labels"].apply(
             _to_onehot_labels, labels_dict=unique_labels_dict

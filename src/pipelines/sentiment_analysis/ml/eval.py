@@ -6,28 +6,29 @@ from functools import partial
 import torch
 from torch.utils.data import DataLoader
 from ruamel.yaml import YAML
-import pendulum
+from tqdm import tqdm
+import numpy as np
 
-from utils.io_utils import *
-from utils.text_utils import *
-from model.model import *
+from src.utils.io_utils import *
+from src.utils.text_utils import *
+from src.model.model import *
+from src.tasks.tasks import *
 
 yaml = YAML()
 
 
 def _get_project_dir_folder():
-    return path.dirname(
-        path.dirname(path.dirname(path.dirname(path.dirname(path.dirname(__file__)))))
+    project_root = path.dirname(
+        path.dirname(path.dirname(path.dirname(path.dirname(__file__))))
     )
+    print(f"project_root={project_root}")
+    return project_root
 
 
-def _construct_report(config, now, model, result_dict):
-
+def _construct_report(config, experiment_timestamp, result_dict):
     report = {}
     report["name"] = config["name"]
-    expt = config["experiment"]
-    report["expriment"] = expt
-    report["time_start"] = now.to_datetime_string()
+    report["time_start"] = experiment_timestamp
     report = report | config["params"]["common"]
     report = report | config["params"]["validate"]
 
@@ -67,70 +68,71 @@ def _construct_report(config, now, model, result_dict):
     return report
 
 
-def main(experiment_timestamp, experiment_mode="model", experiment="baseline"):
-    now = pendulum.now()
+def main(
+    experiment_timestamp,
+    workflow="model",
+    experiment="baseline",
+):
     torch.manual_seed(42)
     device = get_device()
 
     ASSETS_FP = path.join(_get_project_dir_folder(), "assets")
 
     documents_fp = path.join(
-        ASSETS_FP,
-        "datasets",
-        "named_entity_recognition",
-        "model",
-        f"test-{experiment}.csv",
+        ASSETS_FP, "datasets", "sentiment_analysis", "datamart", f"test.csv"
     )
     vocabulary_fp = path.join(
         ASSETS_FP,
         "datasets",
-        "named_entity_recognition",
+        "sentiment_analysis",
         "model",
-        f"vocabulary-{experiment}.csv",
+        f"vocabulary-{workflow}-{experiment}-{experiment_timestamp}.csv",
     )
-    labels_fp = path.join(
-        ASSETS_FP, "datasets", "named_entity_recognition", "datamart", "labels.csv"
-    )
-    config_baseline_fp = path.join(
-        ASSETS_FP, "config", "named_entity_recognition", f"config-{experiment}.yaml"
+    config_fp = path.join(
+        ASSETS_FP, "config", "sentiment_analysis", f"config-{experiment}.yaml"
     )
     model_fp = path.join(
         ASSETS_FP,
         "models",
-        "named_entity_recognition",
-        f"{experiment_mode}-{experiment}-{experiment_timestamp}.pkl",
+        "sentiment_analysis",
+        f"{workflow}-{experiment}-{experiment_timestamp}.pkl",
     )
 
     results_json_fp = path.join(
         ASSETS_FP,
         "models",
-        "named_entity_recognition",
-        f"report-{experiment}-{experiment_timestamp}.json",
+        "sentiment_analysis",
+        f"report-{workflow}-{experiment}-{experiment_timestamp}.json",
+    )
+    results_csv_fp = path.join(
+        ASSETS_FP,
+        "models",
+        "sentiment_analysis",
+        f"detailedreport-{workflow}-{experiment}-{experiment_timestamp}.csv",
     )
 
     # Corpus
-    df = pd.read_csv(documents_fp, sep="\t")
-    corpus = df["tokens"]
+    corpus = get_corpus_task(documents_fp)
     # Labels
-    labels_df = pd.read_csv(labels_fp, sep="\t")
-    labels = df["onehot_labels"].to_list()
-    count_unique_labels = labels_df.shape[0]
+    labels = get_labels_task(documents_fp)
     # Config
-    config = None
-    with open(config_baseline_fp) as f:
-        config = yaml.load(f)
+    config = get_config_task(config_fp)
     config_common = config.get("params").get("common")
     config_validate = config.get("params").get("validate")
-
     # Vocabulary
     word_to_idx_dict, vocab_size = load_vocabulary_to_idx(vocabulary_fp)
-
     # Data Loader
-    word_idx_sequences, onehot_labels = transform_corpus_to_idx_word_windows(
-        corpus, labels, word_to_idx_dict, pad_window_size=config_common["window_size"]
+    word_idx_sequences = transform_corpus_to_idx_sequences(
+        corpus,
+        word_to_idx_dict,
     )
-    data = list(zip(word_idx_sequences, onehot_labels))
-    collate_fn = partial(custom_collate_fn, device=device)
+    # Data loader
+    data = list(zip(word_idx_sequences, labels))
+    collate_fn = partial(
+        custom_collate_fn_for_variable_seq_length,
+        word_to_idx=word_to_idx_dict,
+        device=device,
+    )
     loader = DataLoader(
         data,
         batch_size=config_validate["batch_size"],
@@ -138,24 +140,30 @@ def main(experiment_timestamp, experiment_mode="model", experiment="baseline"):
         collate_fn=collate_fn,
     )
     # Load model
-    model_hyperparameters = {
-        "batch_size": config_validate["batch_size"],
-        "window_size": config_common["window_size"],
-        "embed_dim": config_common["embed_dim"],
-        "hidden_dim": config_common["embed_dim"],
-        "freeze_embeddings": config_common["freeze_embeddings"],
-    }
-    model = WordWindowMulticlassClassifierBaseline(
-        model_hyperparameters, vocab_size, num_classes=count_unique_labels
+    model_hyperparameters = get_model_hyperparameters_task(
+        config_common, config_validate
+    )
+    model = SentimentClassifierBaseline(
+        model_hyperparameters,
+        vocab_size,
     )
     model.load_state_dict(torch.load(model_fp))
 
-    result_dict = {}
-    for test_instance, labels, _ in loader:
-        output = model.forward(test_instance)
-        for l_tsr, o_tsr in zip(labels, output):
-            l = torch.argmax(l_tsr).to(torch.int32)
-            o = torch.argmax(o_tsr).to(torch.int32)
+    # Evaluate
+    result_dict, result_list = {}, []
+    r = 0
+    for test_sequences_BL, labels_BS in tqdm(loader):
+        # Outputs from model
+        outputs = model(test_sequences_BL).squeeze(1)
+        outputs = outputs.detach().numpy()
+        to_classes = lambda x: 1 if x >= 0.5 else 0
+        to_classes_v = np.vectorize(to_classes)
+        outputs = to_classes_v(outputs)
+        # Outputs from label
+        labels = labels_BS.squeeze(1).numpy()
+        labels = labels.astype(int)
+
+        for l, o in zip(labels, outputs):
             res = f"label-{l}-pred-{o}"
             if res in result_dict:
                 c = result_dict[res]
@@ -163,11 +171,19 @@ def main(experiment_timestamp, experiment_mode="model", experiment="baseline"):
                 result_dict[res] = c
             else:
                 result_dict[res] = 1
+            result_list.append([r, l, o])
+            r += 1
 
-    j = _construct_report(config, now, model, result_dict)
+    j = _construct_report(config, experiment_timestamp, result_dict)
+
     with open(results_json_fp, "w") as f:
         json.dump(j, f, ensure_ascii=False, indent=4)
     print(f"Done. Wrote results to {results_json_fp}")
+
+    results_df = pd.DataFrame(
+        result_list, columns=["test_example_index", "ytest", "ypredict"]
+    )
+    results_df.to_csv(results_csv_fp, index=False)
 
 
 if __name__ == "__main__":

@@ -24,10 +24,37 @@ download_data:
 	./assets/datasets/named_entity_recognition/downloaded/test.txt
 	@echo "[Done]: download_data"
 	
-ingest_data:
+preprocess_data:
 	@echo "[Start]: ingest data for named entity recognition"
 	${BINARIES}/python -m src.pipelines.named_entity_recognition.preprocess.ingest_to_datamart
 	@echo "[Start]: ingest data for sentiment analysis"
 	${BINARIES}/python -m src.pipelines.sentiment_analysis.preprocess.ingest_to_datamart
 	@echo "[Done]: ingest_data"
+
+train_sentiment_analysis_step:
+	@echo "[Start]: training workflow for sentiment analysis"
+	${BINARIES}/python -m src.pipelines.sentiment_analysis.ml.train
+	@echo "[Done]: training for sentiment analysis"
+
+train_named_entity_recognition_step:
+	@echo "[Start]: training workflow for named entity recognition"
+	${BINARIES}/python -m src.pipelines.named_entity_recognition.ml.prepare_data
+	${BINARIES}/python -m src.pipelines.named_entity_recognition.ml.train
+	@echo "[Done]: training for named entity recognition"
+	
+eval_sentiment_analysis_step:
+	@echo "[Start]: eval workflow for sentiment analysis" 
+	${BINARIES}/python -m src.pipelines.sentiment_analysis.ml.eval -t 20240604T170506
+	@echo "[Done]: eval for sentiment analysis"
+
+eval_named_entity_recognition_step:
+	@echo "[Start]: eval workflow for named entity recognition"
+	${BINARIES}/python -m src.pipelines.named_entity_recognition.ml.eval -t 20240604T170510
+	@echo "[Done]: eval for named entity recognition"
+
+setup: setup_env
+ingest: download_data preprocess_data
+train: train_sentiment_analysis_step train_named_entity_recognition_step
+eval: eval_sentiment_analysis_step eval_named_entity_recognition_step
+remove: teardown_env
 

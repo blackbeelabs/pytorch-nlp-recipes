@@ -7,17 +7,19 @@ from torch.utils.data import DataLoader
 from ruamel.yaml import YAML
 import pendulum
 
-from utils.io_utils import *
-from utils.text_utils import *
-from model.model import *
+from src.utils.io_utils import *
+from src.utils.text_utils import *
+from src.model.model import *
 
 yaml = YAML()
 
 
 def _get_project_dir_folder():
-    return path.dirname(
-        path.dirname(path.dirname(path.dirname(path.dirname(path.dirname(__file__)))))
+    project_root = path.dirname(
+        path.dirname(path.dirname(path.dirname(path.dirname(__file__))))
     )
+    print(f"project_root={project_root}")
+    return project_root
 
 
 def _construct_report(config, losses, now, later, vocab_size, word_window_size, model):

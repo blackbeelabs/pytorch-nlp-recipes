@@ -15,28 +15,17 @@ The workflow contains a couple of steps:
 ## Setup environment
 Initialise your Python environment. I use `pyenv` / `virtualenv`, and 3.11.1
 ```
-make setup_env
+make setup
 ```
 
-## Download datasets
+## Ingest datasets
 ```
-make download_data
-```
-
-## Preprocess datasets
-```
-make preprocess_data
+make ingest
 ```
 
-## Teardown environment
+## Remove environment
 ```
-make teardown_env
-```
-
-Set the `PYTHONPATH` and go to the `src` folder
-```
-export PYTHONPATH="/path/to/pytorch-nlp-recipes/src"
-cd /path/to/pytorch-nlp-recipes/src
+make remove
 ```
 
 Run `build.py` and `train.py` for Sentiment Analysis
